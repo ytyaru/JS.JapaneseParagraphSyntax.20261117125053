@@ -1,0 +1,77 @@
+root: {
+    --font-size: 16px;
+    --line-height: 1.0;
+    --letter-spacing: 0;
+}
+* {
+    font-size: var(--font-size);
+    line-height: var(--line-height);
+    letter-spacing: var(--letter-spacing);
+    /*
+    padding: 0;
+    margin: 0;
+    */
+}
+section.page.cover > h1 {
+    font-size: 2.5em;
+    padding: 0;
+    margin: 0;
+}
+h1 {
+    font-size: 2em;
+}
+h2 {
+    font-size: 1.5em;
+}
+ul,ol {
+  /*list-style: none;*/ /* ポッチを消す場合 */
+  padding-inline-start: 1.5em;  /* 左側の余白を消す */
+}
+ol.decimal {list-style-type:decimal;}
+ol.cjk-decimal {list-style-type:cjk-decimal;}
+ol.decimal-leading-zero {list-style-type:decimal-leading-zero;}
+ol.lower-roman {list-style-type:lower-roman;}
+ol.upper-roman{list-style-type:upper-roman;}
+ol.lower-greek{list-style-type:lower-greek;}
+ol.lower-alpha{list-style-type:lower-alpha;}
+ol.upper-alpha{list-style-type:upper-alpha;}
+ol.arabic-indic{list-style-type:arabic-indic;}
+ol.cjk-earthly-branch{list-style-type:cjk-earthly-branch;}
+ol.cjk-heavenly-stem{list-style-type:cjk-heavenly-stem;}
+ol.cjk-ideographic{list-style-type:cjk-ideographic;}
+ol.hiragana{list-style-type:hiragana;}
+ol.hiragana-iroha{list-style-type:hiragana-iroha;}
+ol.japanese-formal{list-style-type:japanese-formal;}
+ol.japanese-informal{list-style-type:japanese-informal;}
+ol.katakana{list-style-type:katakana;}
+ol.katakana-iroha{list-style-type:katakana-iroha;}
+ol.disclosure-open{list-style-type:disclosure-open;}
+ol.disclosure-closed{list-style-type:disclosure-closed;}
+/*
+ol.armenian{list-style-type:armenian;}
+ol.bengali{list-style-type:bengali;}
+ol.cambodian{list-style-type:cambodian;}
+ol.devanagari{list-style-type:devanagari;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.{list-style-type:;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+ol.dec {list-style-type:decimal;}
+*/
