@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+/* =========================================================
+   1. 汎用半角幅インライン要素 <hw-text>
+   ========================================================= */
+hw-text {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  width: calc(var(--len) * 0.5em);
+}
+hw-text > span {
+  display: inline-block;
+  width: calc(var(--len) * 1em);
+  white-space: nowrap;
+  transform: scaleX(0.5);
+  transform-origin: left center;
+}
+
+/* =========================================================
+   2. 独自リスト要素 <kanji-list> / <kanji-item>（ネスト対応）
+   ========================================================= */
+kanji-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+/* ネスト（入れ子）された子リストは親の本文開始位置に合わせてインデント */
+kanji-list kanji-list {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+
+kanji-item {
+  display: grid;
+  /* 1列目: 番号列(リスト内の最大幅) / 2列目: 記号(1em) / 3列目: 本文(ネスト含む) */
+  grid-template-columns: var(--max-w, 1em) 1em 1fr;
+  align-items: baseline;
+}
+
+/* 1列目：番号枠（右寄せ） */
+kanji-item > .num-col {
+  grid-column: 1;
+  justify-self: end;
+  display: inline-block;
+  text-align: center;
+}
+/* 1文字のときは全角1幅 */
+kanji-item > .num-col[data-len="1"] {
+  width: 1em;
+}
+
+/* 2列目：記号 */
+kanji-item > .sep-col {
+  grid-column: 2;
+}
+
+/* 3列目：本文とネストされた子リスト */
+kanji-item > .txt-col {
+  grid-column: 3;
+}
+</style>
+</head>
+<body>
+
+  <p>汎用部品の単体テスト：通常の全角文字と<hw-text>半角幅圧縮テキスト</hw-text>の混在。</p>
+
+  <h3>1. ネスト（入れ子）と1〜12のテスト</h3>
+  <kanji-list start="1" ten="single">
+    <kanji-item>親項目一</kanji-item>
+    <kanji-item>
+      親項目二（中に子リストをネスト）
+      <kanji-list start="1" ten="single">
+        <kanji-item>子項目一</kanji-item>
+        <kanji-item>
+          子項目二（さらに孫リストをネスト）
+          <kanji-list start="0" ten="positional">
+            <kanji-item>孫項目〇（0始まり・位取り）</kanji-item>
+            <kanji-item>孫項目一</kanji-item>
+            <kanji-item>孫項目一〇</kanji-item>
+          </kanji-list>
+        </kanji-item>
+        <kanji-item>子項目十一（2桁半角圧縮）</kanji-item>
+      </kanji-list>
+    </kanji-item>
+    <kanji-item>親項目三</kanji-item>
+    <kanji-item>親項目四</kanji-item>
+    <kanji-item>親項目五</kanji-item>
+    <kanji-item>親項目六</kanji-item>
+    <kanji-item>親項目七</kanji-item>
+    <kanji-item>親項目八</kanji-item>
+    <kanji-item>親項目九</kanji-item>
+    <kanji-item>親項目十（1文字＝全角1幅）</kanji-item>
+    <kanji-item>親項目十一（2文字＝半角2幅・右寄せ）</kanji-item>
+  </kanji-list>
+
+  <h3>2. 百・千・万・億・兆・京の桁上がり確認テスト</h3>
+  <!-- JSで特定の開始番号リストを自動生成して表示 -->
+  <div id="big-num-tests"></div>
+
+<script>
+// 1. 汎用 <hw-text> の初期化
+function initHwText(root = document) {
+  root.querySelectorAll("hw-text").forEach(el => {
+    if (el.dataset.initialized) return;
+    const text = el.textContent;
+    const len = [...text].length;
+    el.style.setProperty("--len", len);
+    el.innerHTML = `<span>${text}</span>`;
+    el.dataset.initialized = "true";
+  });
+}
+
+// 2. 漢数字変換関数
+function toKanji(num, tenMode) {
+  const digits = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const units = ["", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極"];
+  if (num === 0) return digits[0];
+
+  let res = "";
+  let uIdx = 0;
+  while (num > 0) {
+    const chunk = num % 10000;
+    if (chunk > 0) {
+      let s = "";
+      const d1000 = Math.floor(chunk / 1000);
+      const d100  = Math.floor((chunk % 1000) / 100);
+      const d10   = Math.floor((chunk % 100) / 10);
+      const d1    = chunk % 10;
+
+      if (d1000 > 0) s += (d1000 === 1 ? "" : digits[d1000]) + "千";
+      if (d100 > 0)  s += (d100 === 1 ? "" : digits[d100]) + "百";
+
+      if (tenMode === "single" && d10 === 1) {
+        s += "十" + (d1 > 0 ? digits[d1] : "");
+      } else if (d10 > 0) {
+        s += digits[d10] + digits[d1];
+      } else if (d1 > 0) {
+        s += digits[d1];
+      }
+      res = s + units[uIdx] + res;
+    }
+    num = Math.floor(num / 10000);
+    uIdx++;
+  }
+  return res;
+}
+
+// 3. <kanji-list> の初期化（ネスト対応：内側のリストから先に処理して親のDOM破壊を防ぐ）
+function initKanjiLists() {
+  const lists = Array.from(document.querySelectorAll("kanji-list")).reverse();
+
+  lists.forEach(list => {
+    const start = parseInt(list.getAttribute("start") || "1", 10);
+    const tenMode = list.getAttribute("ten") || "single";
+    let maxHalfUnits = 2; // 最小でも全角1幅(=半角2単位)
+
+    const items = list.querySelectorAll(":scope > kanji-item");
+    items.forEach((item, i) => {
+      const kanji = toKanji(start + i, tenMode);
+      const len = [...kanji].length;
+
+      const halfUnits = (len === 1) ? 2 : len;
+      if (halfUnits > maxHalfUnits) {
+        maxHalfUnits = halfUnits;
+      }
+
+      // 番号列の作成（2文字以上なら <hw-text> でラップ）
+      const numCol = document.createElement("span");
+      numCol.className = "num-col";
+      numCol.setAttribute("data-len", len);
+      if (len === 1) {
+        numCol.textContent = kanji;
+      } else {
+        const hw = document.createElement("hw-text");
+        hw.textContent = kanji;
+        numCol.appendChild(hw);
+      }
+
+      // 記号列の作成
+      const sepCol = document.createElement("span");
+      sepCol.className = "sep-col";
+      sepCol.textContent = "．";
+
+      // 本文列の作成（既存の子ノード・ネストされたリストをそのまま移動）
+      const txtCol = document.createElement("span");
+      txtCol.className = "txt-col";
+      while (item.firstChild) {
+        txtCol.appendChild(item.firstChild);
+      }
+
+      item.appendChild(numCol);
+      item.appendChild(sepCol);
+      item.appendChild(txtCol);
+    });
+
+    list.style.setProperty("--max-w", `${maxHalfUnits * 0.5}em`);
+  });
+
+  initHwText();
+}
+
+// --- テスト用：98〜112、999〜1001、10000、100000000 のリストを生成 ---
+const testContainer = document.getElementById("big-num-tests");
+const testRanges = [
+  { start: 98, count: 15, label: "98〜112（百、百一、百十、百十一の切り替わり）" },
+  { start: 999, count: 4, label: "999〜1002（千の切り替わり）" },
+  { start: 10000, count: 2, label: "10000〜（万の切り替わり）" },
+  { start: 100000000, count: 2, label: "100000000〜（億の切り替わり）" },
+  { start: 1000000000000, count: 2, label: "1000000000000〜（兆の切り替わり）" }
+];
+
+testRanges.forEach(r => {
+  const h4 = document.createElement("h4");
+  h4.textContent = r.label;
+  testContainer.appendChild(h4);
+
+  const kl = document.createElement("kanji-list");
+  kl.setAttribute("start", r.start);
+  kl.setAttribute("ten", "single");
+  for (let i = 0; i < r.count; i++) {
+    const ki = document.createElement("kanji-item");
+    ki.textContent = `数値 ${r.start + i} のテスト項目`;
+    kl.appendChild(ki);
+  }
+  testContainer.appendChild(kl);
+});
+
+// 実行
+initKanjiLists();
+</script>
+
+</body>
+</html>
+

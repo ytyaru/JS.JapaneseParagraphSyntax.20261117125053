@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+/* 1. 漢数字＋全角ピリオドの定義 */
+@counter-style custom-kanji {
+  system: numeric;
+  symbols: "〇" "一" "二" "三" "四" "五" "六" "七" "八" "九";
+}
+
+/* 2. リストのスタイル（padding: 0 で見切れなし・余白自由） */
+ol.custom-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: item;
+}
+
+ol.custom-list > li {
+  counter-increment: item;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.5em; /* 番号と文字の間の余白 */
+}
+
+ol.custom-list > li::before {
+  /* counter() に続けて記号を直接指定する */
+  content: counter(item, custom-kanji) "．";
+  text-align: right;
+}
+</style>
+</head>
+<body>
+
+  <!-- class="custom-list" を指定する -->
+  <ol class="custom-list">
+    <li>最初の項目</li>
+    <li>二番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>三番目の項目</li>
+    <li>十番目の項目（一〇．になる）</li>
+  </ol>
+
+</body>
+</html>
+

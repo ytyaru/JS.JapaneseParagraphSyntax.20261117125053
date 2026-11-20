@@ -1,0 +1,76 @@
+<p style="font-size: 20px; line-height: 1.8;">
+  通常の文字①と、自作の<c-char>1</c-char>や<c-char>99</c-char>、限界の<c-char>100</c-char>、
+  四角囲みの<c-char type="square">済</c-char>や<c-char type="square">秘</c-char>を並べて比較。
+</p>
+
+<script>
+  class EnclosedChar extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+      const type = this.getAttribute('type') || 'circle';
+      const text = this.textContent.trim();
+      const len = text.length;
+
+      // 文字数に応じた縮小率（1emの枠内に収めるための経験則値）
+      // 1文字: 0.75em, 2文字: 0.55em, 3文字: 0.42em, 4文字以上: 0.35em
+      let fontSize = 0.75;
+      let scaleX = 1.0;
+
+      if (len === 2) {
+        fontSize = 0.58;
+        scaleX = 0.9; // 少し長体にして視認性を確保
+      } else if (len === 3) {
+        fontSize = 0.45;
+        scaleX = 0.8; // 3桁（100など）は長体で押し込む
+      } else if (len >= 4) {
+        fontSize = 0.35;
+        scaleX = 0.75;
+      }
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          :host {
+            /* 厳密に全角1文字分の領域を確保 */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1em;
+            height: 1em;
+            
+            /* 日本語フォントのベースラインに合わせるための微調整 */
+            vertical-align: -0.12em;
+            
+            /* 枠線（太すぎると中の文字が潰れるため細めに設定） */
+            border: 0.06em solid currentColor;
+            border-radius: ${type === 'circle' ? '50%' : '0.12em'};
+            box-sizing: border-box;
+            
+            /* 行間（line-height）に影響を与えない */
+            line-height: 1;
+            overflow: hidden;
+            user-select: all;
+          }
+
+          .inner {
+            font-size: ${fontSize}em;
+            font-weight: 600;
+            letter-spacing: -0.05em; /* 文字詰め */
+            transform: scaleX(${scaleX});
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+        </style>
+        <span class="inner"><slot></slot></span>
+      `;
+    }
+  }
+
+  customElements.define('c-char', EnclosedChar);
+</script>
+

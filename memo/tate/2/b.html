@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+ol.custom-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  /* 1列目(番号):一番長い番号(例:3半角幅=1.5em)に自動フィット / 2列目(ピリオド):1em / 3列目(本文):残り */
+  grid-template-columns: max-content 1em 1fr;
+}
+
+ol.custom-list > li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+}
+
+/* 1列目：番号枠（右寄せ） */
+ol.custom-list > li > .num-box {
+  grid-column: 1;
+  justify-self: end; /* 右寄せにして桁位置を合わせる */
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* 1文字（一〜九、十、百、千、万など）：そのまま全角1幅 (1em) */
+ol.custom-list > li > .num-box[data-len="1"] {
+  width: 1em;
+  text-align: center;
+}
+
+/* 2文字以上（十一、二〇、百十一など）：1字あたり半角幅(0.5em)に圧縮 */
+ol.custom-list > li > .num-box[data-len]:not([data-len="1"]) {
+  /* 文字数 × 0.5em の表示幅を確保 */
+  width: calc(var(--len) * 0.5em);
+}
+
+ol.custom-list > li > .num-box[data-len]:not([data-len="1"]) > span {
+  display: inline-block;
+  width: calc(var(--len) * 1em);
+  /* 横幅を0.5倍に圧縮（右端を基準に縮小） */
+  transform: scaleX(0.5);
+  transform-origin: right center;
+}
+
+/* 2列目：全角ピリオド */
+ol.custom-list > li::after {
+  content: "．";
+  grid-column: 2;
+}
+
+/* 3列目：本文 */
+ol.custom-list > li > .text-box {
+  grid-column: 3;
+}
+</style>
+</head>
+<body>
+
+<ol class="custom-list" id="myList">
+  <li>字（1）</li>
+  <li>字（2）</li>
+  <!-- テスト用にJSで10〜115まで自動生成して確認します -->
+</ol>
+
+<script>
+// ご指定の特殊ルールに基づく漢数字変換関数（京・垓・𥝱…まで対応）
+function toCustomKanji(num) {
+  const digits = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const smallUnits = ["", "十", "百", "千"];
+  const bigUnits = ["", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極"];
+
+  if (num === 0) return digits[0];
+
+  let str = "";
+  let bigUnitIdx = 0;
+
+  while (num > 0) {
+    let chunk = num % 10000;
+    if (chunk > 0) {
+      let chunkStr = "";
+      let d1000 = Math.floor(chunk / 1000);
+      let d100  = Math.floor((chunk % 1000) / 100);
+      let d10   = Math.floor((chunk % 100) / 10);
+      let d1    = chunk % 10;
+
+      // 千の位（1000は「千」、2000以上は「二千」または「二〇〇〇」など調整可能）
+      if (d1000 > 0) chunkStr += (d1000 === 1 ? "" : digits[d1000]) + "千";
+      // 百の位（100は「百」、200以上は「二百」）
+      if (d100 > 0)  chunkStr += (d100 === 1 ? "" : digits[d100]) + "百";
+      
+      // ★ご指定の特殊ルール：10〜19は「十」「十一」、20以上は「二〇」「二一」
+      if (d10 === 1) {
+        chunkStr += "十" + (d1 > 0 ? digits[d1] : "");
+      } else if (d10 >= 2) {
+        chunkStr += digits[d10] + digits[d1];
+      } else {
+        if (d1 > 0) chunkStr += digits[d1];
+      }
+
+      str = chunkStr + bigUnits[bigUnitIdx] + str;
+    }
+    num = Math.floor(num / 10000);
+    bigUnitIdx++;
+  }
+  return str;
+}
+
+// リスト要素に番号と圧縮用属性を自動付与する処理
+function formatKanjiList(selector, startNum = 1) {
+  const list = document.querySelector(selector);
+  const items = list.querySelectorAll("li");
+  
+  items.forEach((li, index) => {
+    const currentNum = startNum + index;
+    const kanji = toCustomKanji(currentNum);
+    const len = [...kanji].length; // サロゲートペア(𥝱など)も正しく1文字としてカウント
+
+    // 元の本文をラップ
+    const textSpan = document.createElement("span");
+    textSpan.className = "text-box";
+    while (li.firstChild) {
+      textSpan.appendChild(li.firstChild);
+    }
+
+    // 番号ボックスを作成
+    const numSpan = document.createElement("span");
+    numSpan.className = "num-box";
+    numSpan.setAttribute("data-len", len);
+    numSpan.style.setProperty("--len", len);
+    numSpan.innerHTML = `<span>${kanji}</span>`;
+
+    li.prepend(textSpan);
+    li.prepend(numSpan);
+  });
+}
+
+// --- 動作確認用：1〜115番までのダミー項目を生成して実行 ---
+const ol = document.getElementById("myList");
+ol.innerHTML = "";
+[1, 2, 9, 10, 11, 12, 20, 21, 99, 100, 101, 109, 110, 111, 1000, 10000, 100000000].forEach(n => {
+  // テスト用に個別の開始番号で表示確認するため、実際は通常の連番で使えます
+  const li = document.createElement("li");
+  li.textContent = `（数値 ${n} の表示テスト）`;
+  ol.appendChild(li);
+});
+
+// テスト表示用に各行へ個別の数値を割り当て（通常運用時は formatKanjiList("#myList") だけで連番になります）
+const testNums =;
+document.querySelectorAll("#myList > li").forEach((li, i) => {
+  const kanji = toCustomKanji(testNums[i]);
+  const len = [...kanji].length;
+  li.innerHTML = `<span class="num-box" data-len="${len}" style="--len:${len}"><span>${kanji}</span></span><span class="text-box">${li.textContent}</span>`;
+});
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+/* 1. 汎用半角幅インライン要素 <hw-text> */
+hw-text {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  width: calc(var(--len) * 0.5em);
+}
+hw-text > span {
+  display: inline-block;
+  width: calc(var(--len) * 1em);
+  white-space: nowrap;
+  transform: scaleX(0.5);
+  transform-origin: left center;
+}
+
+/* 2. 独自リスト要素 <kanji-list> / <kanji-item> */
+kanji-list {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+kanji-list kanji-list {
+  margin-top: 0.2em;
+  margin-bottom: 0.2em;
+}
+kanji-item {
+  display: grid;
+  grid-template-columns: var(--max-w, 1em) 1em 1fr;
+  align-items: baseline;
+}
+kanji-item > .num-col {
+  grid-column: 1;
+  justify-self: end;
+  display: inline-block;
+  text-align: center;
+}
+kanji-item > .num-col[data-len="1"] {
+  width: 1em;
+}
+kanji-item > .sep-col {
+  grid-column: 2;
+}
+kanji-item > .txt-col {
+  grid-column: 3;
+}
+
+/* テスト表示用のレイアウト調整 */
+.test-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5em;
+}
+.test-box {
+  border: 1px solid #ccc;
+  padding: 0.8em;
+}
+.test-box h4 {
+  margin: 0 0 0.5em 0;
+  font-size: 0.9em;
+  background: #f0f0f0;
+  padding: 0.3em;
+}
+</style>
+</head>
+<body>
+
+  <h3>境界値テスト一覧（文字数最小化漢数字ルール）</h3>
+  <div id="test-container" class="test-grid"></div>
+
+<script>
+// 汎用 <hw-text> 初期化
+function initHwText(root = document) {
+  root.querySelectorAll("hw-text").forEach(el => {
+    if (el.dataset.initialized) return;
+    const text = el.textContent;
+    const len = [...text].length;
+    el.style.setProperty("--len", len);
+    el.innerHTML = `<span>${text}</span>`;
+    el.dataset.initialized = "true";
+  });
+}
+
+// 文字数最小化漢数字変換（BigInt対応：京・垓・𥝱…まで精度落ちなし）
+function toMinimalKanji(numInput, tenMode = "single") {
+  const digits = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  // 10の累乗に対応する単位（10^1=十, 10^2=百, 10^3=千, 10^4=万, 10^8=億, 10^12=兆, 10^16=京...）
+  const unitMap = {
+    1: "十", 2: "百", 3: "千", 4: "万",
+    8: "億", 12: "兆", 16: "京", 20: "垓",
+    24: "𥝱", 28: "穣", 32: "溝", 36: "澗",
+    40: "正", 44: "載", 48: "極"
+  };
+
+  let n = BigInt(numInput);
+  if (n === 0n) return digits[0];
+
+  const s = n.toString();
+  const len = s.length;
+
+  // positionalモード（10を「一〇」にするモード）または先頭が「1」以外（2〜9始まり）の場合
+  // → 単純な位取り記数法（二〇、二一、九九九、二〇〇〇など）の方が短いか同字数になる
+  if (tenMode === "positional" || s[0] !== "1") {
+    return [...s].map(ch => digits[Number(ch)]).join("");
+  }
+
+  // 先頭が「1」の場合（10, 11..19, 100..199, 1000..1999, 10000...）
+  // 単位が存在する桁（10^1, 10^2, 10^3, 10^4, 10^8, 10^12, 10^16...）か判定
+  const power = len - 1;
+  const unit = unitMap[power];
+
+  if (unit) {
+    // 単位がある場合：先頭の「1」を単位文字に置き換え、残りの下位桁を再帰的に最小化
+    const restStr = s.slice(1);
+    const restNum = BigInt(restStr);
+    if (restNum === 0n) {
+      return unit; // 例: 10->"十", 100->"百", 1000->"千", 10000->"万"
+    }
+    // 例: 101 -> "百" + "一" = "百一"
+    // 例: 110 -> "百" + "十" = "百十"
+    // 例: 120 -> "百" + "二〇" = "百二〇"
+    // 例: 199 -> "百" + "九九" = "百九九"
+    return unit + toMinimalKanji(restNum, tenMode);
+  } else {
+    // 10万(10^5)や100万(10^6)など単独の1文字単位がない桁は、位取り記数法にする（例: 100000 -> "一〇〇〇〇〇"）
+    return [...s].map(ch => digits[Number(ch)]).join("");
+  }
+}
+
+// <kanji-list> 初期化
+function initKanjiLists() {
+  const lists = Array.from(document.querySelectorAll("kanji-list")).reverse();
+
+  lists.forEach(list => {
+    const start = BigInt(list.getAttribute("start") || "1");
+    const tenMode = list.getAttribute("ten") || "single";
+    let maxHalfUnits = 2;
+
+    const items = list.querySelectorAll(":scope > kanji-item");
+    items.forEach((item, i) => {
+      const kanji = toMinimalKanji(start + BigInt(i), tenMode);
+      const len = [...kanji].length;
+
+      const halfUnits = (len === 1) ? 2 : len;
+      if (halfUnits > maxHalfUnits) {
+        maxHalfUnits = halfUnits;
+      }
+
+      const numCol = document.createElement("span");
+      numCol.className = "num-col";
+      numCol.setAttribute("data-len", len);
+      if (len === 1) {
+        numCol.textContent = kanji;
+      } else {
+        const hw = document.createElement("hw-text");
+        hw.textContent = kanji;
+        numCol.appendChild(hw);
+      }
+
+      const sepCol = document.createElement("span");
+      sepCol.className = "sep-col";
+      sepCol.textContent = "．";
+
+      const txtCol = document.createElement("span");
+      txtCol.className = "txt-col";
+      while (item.firstChild) {
+        txtCol.appendChild(item.firstChild);
+      }
+
+      item.appendChild(numCol);
+      item.appendChild(sepCol);
+      item.appendChild(txtCol);
+    });
+
+    list.style.setProperty("--max-w", `${maxHalfUnits * 0.5}em`);
+  });
+
+  initHwText();
+}
+
+// --- 全境界値テストケースの生成 ---
+const container = document.getElementById("test-container");
+const boundaryTests = [
+  { title: "0始まり・位取り (0〜11)", start: "0", count: 12, mode: "positional" },
+  { title: "0始まり・十単字 (0〜12)", start: "0", count: 13, mode: "single" },
+  { title: "1〜22 (九→十→十一 / 一九→二〇→二一)", start: "1", count: 22, mode: "single" },
+  { title: "98〜112 (九九→百→百一 / 百九→百十→百十一)", start: "98", count: 15, mode: "single" },
+  { title: "118〜122 (百一九→百二〇→百二一)", start: "118", count: 5, mode: "single" },
+  { title: "198〜202 (百九八→百九九→二〇〇→二〇一)", start: "198", count: 5, mode: "single" },
+  { title: "998〜1012 (九九九→千→千一→千十→千十一)", start: "998", count: 15, mode: "single" },
+  { title: "1998〜2002 (千九九九→二〇〇〇→二〇〇一)", start: "1998", count: 5, mode: "single" },
+  { title: "9998〜10011 (九九九九→万→万一→万十→万十一)", start: "9998", count: 14, mode: "single" },
+  { title: "億・兆・京の境界 (1億〜1億2)", start: "100000000", count: 3, mode: "single" },
+  { title: "兆の境界 (1兆〜1兆2)", start: "1000000000000", count: 3, mode: "single" },
+  { title: "京の境界 (1京〜1京2)", start: "10000000000000000", count: 3, mode: "single" }
+];
+
+boundaryTests.forEach(t => {
+  const box = document.createElement("div");
+  box.className = "test-box";
+
+  const h4 = document.createElement("h4");
+  h4.textContent = t.title;
+  box.appendChild(h4);
+
+  const kl = document.createElement("kanji-list");
+  kl.setAttribute("start", t.start);
+  kl.setAttribute("ten", t.mode);
+
+  const startBig = BigInt(t.start);
+  for (let i = 0; i < t.count; i++) {
+    const ki = document.createElement("kanji-item");
+    ki.textContent = `(${startBig + BigInt(i)})`;
+    kl.appendChild(ki);
+  }
+  box.appendChild(kl);
+  container.appendChild(box);
+});
+
+initKanjiLists();
+</script>
+
+</body>
+</html>
+

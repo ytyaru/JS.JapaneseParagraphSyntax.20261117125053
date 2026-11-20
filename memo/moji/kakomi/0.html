@@ -1,0 +1,36 @@
+<p>
+  進捗率は <span class="badge-circle">99</span> % から <span class="badge-circle">100</span> % になりました。
+  重要項目は <span class="badge-square">重要</span> です。
+</p>
+
+<style>
+  .badge-circle, .badge-square {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* フォントサイズに対して少し小さくすると文章に馴染む */
+    font-size: 0.75em;
+    font-weight: bold;
+    line-height: 1;
+    
+    /* 1文字でも正円・正方形を保つための最小幅と高さ */
+    min-width: 1.6em;
+    height: 1.6em;
+    padding: 0 0.35em; /* 3桁以上になった時の左右の余白 */
+    box-sizing: border-box;
+    
+    border: 1.5px solid currentColor; /* 文字色と同じ色の枠線 */
+    vertical-align: 0.1em; /* 文章のベースラインとの微調整 */
+  }
+
+  .badge-circle {
+    /* 1〜2文字なら正円、3文字以上なら角丸カプセル型に自動で伸びる */
+    border-radius: 9999px;
+  }
+
+  .badge-square {
+    border-radius: 0.25em; /* 完全な四角にしたい場合は 0 */
+  }
+</style>
+

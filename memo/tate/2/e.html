@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+/* 独自要素の定義（標準の ul / ol には一切干渉しない） */
+kanji-list {
+  display: block;
+}
+
+kanji-item {
+  display: grid;
+  /* 1列目: 番号列(最大幅変数 --max-w) / 2列目: 記号(1em) / 3列目: 本文 */
+  grid-template-columns: var(--max-w, 1em) 1em 1fr;
+  align-items: baseline;
+}
+
+/* 1列目：番号の外枠（右寄せ） */
+kanji-item > .num-wrap {
+  grid-column: 1;
+  justify-self: end;
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: baseline;
+}
+
+/* 1文字のとき：全角1幅 (1em) */
+kanji-item > .num-wrap[data-len="1"] {
+  width: 1em;
+  text-align: center;
+}
+kanji-item > .num-wrap[data-len="1"] > .num-inner {
+  display: inline-block;
+  width: 1em;
+}
+
+/* 2文字以上のとき：外枠を「文字数 × 0.5em」に物理固定し、中身を0.5倍圧縮 */
+kanji-item > .num-wrap:not([data-len="1"]) {
+  width: calc(var(--len) * 0.5em);
+}
+kanji-item > .num-wrap:not([data-len="1"]) > .num-inner {
+  display: inline-block;
+  width: calc(var(--len) * 1em);
+  white-space: nowrap;
+  transform: scaleX(0.5);
+  transform-origin: left center; /* 左端基準で縮めることで、右端が確実に外枠の右端に一致する */
+}
+
+/* 2列目：記号 */
+kanji-item > .sep {
+  grid-column: 2;
+}
+
+/* 3列目：本文 */
+kanji-item > .txt {
+  grid-column: 3;
+}
+</style>
+</head>
+<body>
+
+<kanji-list start="1" ten="single">
+  <kanji-item>一番目の項目</kanji-item>
+  <kanji-item>二番目の項目</kanji-item>
+  <kanji-item>三番目の項目</kanji-item>
+  <kanji-item>四番目の項目</kanji-item>
+  <kanji-item>五番目の項目</kanji-item>
+  <kanji-item>六番目の項目</kanji-item>
+  <kanji-item>七番目の項目</kanji-item>
+  <kanji-item>八番目の項目</kanji-item>
+  <kanji-item>九番目の項目</kanji-item>
+  <kanji-item>十番目の項目</kanji-item>
+  <kanji-item>十一番目の項目</kanji-item>
+  <kanji-item>十二番目の項目</kanji-item>
+</kanji-list>
+
+<script>
+function toKanji(num, tenMode) {
+  const digits = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const units = ["", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極"];
+  if (num === 0) return digits[0];
+
+  let res = "";
+  let uIdx = 0;
+  while (num > 0) {
+    const chunk = num % 10000;
+    if (chunk > 0) {
+      let s = "";
+      const d1000 = Math.floor(chunk / 1000);
+      const d100  = Math.floor((chunk % 1000) / 100);
+      const d10   = Math.floor((chunk % 100) / 10);
+      const d1    = chunk % 10;
+
+      if (d1000 > 0) s += (d1000 === 1 ? "" : digits[d1000]) + "千";
+      if (d100 > 0)  s += (d100 === 1 ? "" : digits[d100]) + "百";
+
+      if (tenMode === "single" && d10 === 1) {
+        s += "十" + (d1 > 0 ? digits[d1] : "");
+      } else if (d10 > 0) {
+        s += digits[d10] + digits[d1];
+      } else if (d1 > 0) {
+        s += digits[d1];
+      }
+      res = s + units[uIdx] + res;
+    }
+    num = Math.floor(num / 10000);
+    uIdx++;
+  }
+  return res;
+}
+
+document.querySelectorAll("kanji-list").forEach(list => {
+  const start = parseInt(list.getAttribute("start") || "1", 10);
+  const tenMode = list.getAttribute("ten") || "single";
+  let maxHalfWidthUnits = 2; // 最小でも全角1幅(=半角2単位)
+
+  list.querySelectorAll(":scope > kanji-item").forEach((item, i) => {
+    const kanji = toKanji(start + i, tenMode);
+    const len = [...kanji].length;
+    const text = item.innerHTML;
+
+    const halfUnits = (len === 1) ? 2 : len;
+    if (halfUnits > maxHalfWidthUnits) {
+      maxHalfWidthUnits = halfUnits;
+    }
+
+    item.innerHTML = `<span class="num-wrap" data-len="${len}" style="--len:${len}"><span class="num-inner">${kanji}</span></span><span class="sep">．</span><span class="txt">${text}</span>`;
+  });
+
+  list.style.setProperty("--max-w", `${maxHalfWidthUnits * 0.5}em`);
+});
+</script>
+
+</body>
+</html>
+

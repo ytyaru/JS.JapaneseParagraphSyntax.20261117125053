@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<style>
+/* 標準の ul / ol には影響を与えず、.kanji-list のみに適用 */
+ol.kanji-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  counter-reset: none;
+}
+
+ol.kanji-list > li {
+  display: grid;
+  /* 1列目: 番号幅(全リスト共通の最大幅変数 --max-w) / 2列目: 記号(1em) / 3列目: 本文 */
+  grid-template-columns: var(--max-w, 1em) 1em 1fr;
+  align-items: baseline;
+}
+
+/* 1列目：番号（右寄せ） */
+ol.kanji-list > li > .num {
+  grid-column: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* 1文字：全角1幅のまま */
+ol.kanji-list > li > .num[data-len="1"] {
+  font-feature-settings: normal;
+}
+
+/* 2文字以上：フォントの半角字形(hwid)を適用して1文字あたり半角幅にする */
+ol.kanji-list > li > .num:not([data-len="1"]) {
+  font-feature-settings: "hwid" 1;
+}
+
+/* 2列目：記号 */
+ol.kanji-list > li > .sep {
+  grid-column: 2;
+  text-align: left;
+}
+
+/* 3列目：本文 */
+ol.kanji-list > li > .txt {
+  grid-column: 3;
+}
+</style>
+</head>
+<body>
+
+<ol class="kanji-list" data-start="1" data-ten="single">
+  <li>一番目の項目</li>
+  <li>二番目の項目</li>
+  <li>三番目の項目</li>
+  <li>四番目の項目</li>
+  <li>五番目の項目</li>
+  <li>六番目の項目</li>
+  <li>七番目の項目</li>
+  <li>八番目の項目</li>
+  <li>九番目の項目</li>
+  <li>十番目の項目</li>
+  <li>十一番目の項目</li>
+  <li>十二番目の項目</li>
+</ol>
+
+<script>
+function toKanji(num, tenMode) {
+  const digits = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+  const units = ["", "万", "億", "兆", "京", "垓", "𥝱", "穣", "溝", "澗", "正", "載", "極"];
+  if (num === 0) return digits[0];
+
+  let res = "";
+  let uIdx = 0;
+  while (num > 0) {
+    const chunk = num % 10000;
+    if (chunk > 0) {
+      let s = "";
+      const d1000 = Math.floor(chunk / 1000);
+      const d100  = Math.floor((chunk % 1000) / 100);
+      const d10   = Math.floor((chunk % 100) / 10);
+      const d1    = chunk % 10;
+
+      if (d1000 > 0) s += (d1000 === 1 ? "" : digits[d1000]) + "千";
+      if (d100 > 0)  s += (d100 === 1 ? "" : digits[d100]) + "百";
+
+      if (tenMode === "single" && d10 === 1) {
+        s += "十" + (d1 > 0 ? digits[d1] : "");
+      } else if (d10 > 0) {
+        s += digits[d10] + digits[d1];
+      } else if (d1 > 0) {
+        s += digits[d1];
+      }
+      res = s + units[uIdx] + res;
+    }
+    num = Math.floor(num / 10000);
+    uIdx++;
+  }
+  return res;
+}
+
+document.querySelectorAll("ol.kanji-list").forEach(ol => {
+  const start = parseInt(ol.dataset.start || "1", 10);
+  const tenMode = ol.dataset.ten || "single";
+  let maxHalfWidthUnits = 2; // 最小でも全角1幅(=半角2単位)を確保
+
+  ol.querySelectorAll(":scope > li").forEach((li, i) => {
+    const kanji = toKanji(start + i, tenMode);
+    const len = [...kanji].length;
+    const text = li.innerHTML;
+
+    // 1文字なら全角1幅(半角2単位)、2文字以上なら文字数分の半角単位
+    const halfUnits = (len === 1) ? 2 : len;
+    if (halfUnits > maxHalfWidthUnits) {
+      maxHalfWidthUnits = halfUnits;
+    }
+
+    li.innerHTML = `<span class="num" data-len="${len}">${kanji}</span><span class="sep">．</span><span class="txt">${text}</span>`;
+  });
+
+  // リスト全体の最大番号幅をCSS変数にセット（例：3半角幅なら 1.5em）
+  ol.style.setProperty("--max-w", `${maxHalfWidthUnits * 0.5}em`);
+});
+</script>
+
+</body>
+</html>
+

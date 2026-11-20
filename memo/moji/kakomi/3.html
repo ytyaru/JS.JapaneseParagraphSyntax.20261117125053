@@ -1,0 +1,74 @@
+<p style="font-size: 24px; line-height: 1.8;">
+  日本語比較：あ①<c-char>1</c-char><c-char>99</c-char><c-char>100</c-char><c-char>8888</c-char>漢<c-char type="square">済</c-char><c-char type="square">重要</c-char>字
+</p>
+<p style="font-size: 24px; line-height: 1.8; font-family: Arial, sans-serif;">
+  English Test: A<c-char>1</c-char><c-char>99</c-char><c-char>100</c-char><c-char>8888</c-char>B<c-char type="square">OK</c-char>C
+</p>
+
+<script>
+  class EnclosedChar extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+      const type = this.getAttribute('type') || 'circle';
+      const text = this.textContent.trim();
+      
+      const visualLength = [...text].reduce((acc, char) => {
+        return acc + (char.match(/[^\x01-\x7E\uFF61-\uFF9F]/) ? 1 : 0.55);
+      }, 0);
+
+      let fontSize = 0.72;
+      let scaleX = 1.0;
+
+      if (visualLength > 1.5) {
+        fontSize = 0.46;
+        scaleX = 0.85;
+      } else if (visualLength > 0.8) {
+        fontSize = 0.62;
+        scaleX = 0.95;
+      }
+
+      this.shadowRoot.innerHTML = `
+        <style>
+          :host {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            
+            /* マジックナンバーなし：フォントのemボックスの底辺に厳密に揃える */
+            vertical-align: text-bottom;
+            
+            border: 0.06em solid currentColor;
+            border-radius: ${type === 'circle' ? '50%' : '0.12em'};
+            box-sizing: border-box;
+            line-height: 1;
+            overflow: hidden;
+            user-select: all;
+          }
+
+          .inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            
+            font-size: ${fontSize}em;
+            font-weight: 600;
+            line-height: 1;
+            /* letter-spacingを削除し、右寄りを解消 */
+            transform: scaleX(${scaleX});
+            white-space: nowrap;
+          }
+        </style>
+        <span class="inner"><slot></slot></span>
+      `;
+    }
+  }
+
+  customElements.define('c-char', EnclosedChar);
+</script>
+
