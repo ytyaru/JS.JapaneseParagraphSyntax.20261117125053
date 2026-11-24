@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日本語文章簡易パーサ</title>
+<style>
+  :root {
+    --bg-color: #ffffff;
+    --text-color: #111111;
+    --border-color: #cccccc;
+    --header-bg: #f4f4f4;
+    --btn-bg: #e0e0e0;
+    --btn-hover: #d0d0d0;
+  }
+
+  [data-theme="dark"] {
+    --bg-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --border-color: #444444;
+    --header-bg: #2d2d2d;
+    --btn-bg: #3c3c3c;
+    --btn-hover: #4c4c4c;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background-color: var(--header-bg);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: 1rem;
+    font-weight: bold;
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+  }
+
+  button {
+    background-color: var(--btn-bg);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+  }
+
+  button:hover {
+    background-color: var(--btn-hover);
+  }
+
+  /* FlexboxではなくCSS Gridで領域を厳密に固定 */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+    flex: 1;
+    overflow: hidden;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  /* 1画面モード時は1列にする */
+  body.single-mode main {
+    grid-template-columns: 1fr;
+  }
+
+  .pane {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+
+  /* ラッパー内で絶対配置して100%サイズを強制 */
+  textarea, #preview {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 16px;
+    border: none;
+    outline: none;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.8;
+    overflow: auto;
+  }
+
+  textarea {
+    resize: none;
+    font-family: monospace;
+  }
+
+  /* 書字方向 */
+  .vertical-rl {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+  }
+
+  .horizontal-tb {
+    writing-mode: horizontal-tb;
+  }
+
+  /* 1画面モード時の表示制御 */
+  body.single-mode[data-active-pane="input"] #pane-output {
+    display: none;
+  }
+
+  body.single-mode[data-active-pane="output"] #pane-input {
+    display: none;
+  }
+
+  /* 1024px未満の制御 */
+  @media (max-width: 1023px) {
+    #btn-split {
+      display: none;
+    }
+  }
+
+  /* パース結果用サンプルスタイル */
+  #preview h2 { border-bottom: 1px solid var(--border-color); margin: 0.5em 0; }
+  #preview p { margin-bottom: 1em; }
+  #preview ruby rt { font-size: 0.6em; }
+</style>
+</head>
+<body data-theme="light" data-active-pane="input">
+
+<header>
+  <h1>日本語文章簡易パーサ</h1>
+  <div class="controls">
+    <button id="btn-split" title="画面分割切替">一画面</button>
+    <button id="btn-pane" title="入力・出力切替">出</button>
+    <button id="btn-dir" title="書字方向切替">縦</button>
+    <button id="btn-theme" title="カラーテーマ切替">黒</button>
+    <button id="btn-dl" title="原稿(.jd)と結果(.html)をダウンロード">DL</button>
+  </div>
+</header>
+
+<main>
+  <div id="pane-input" class="pane">
+    <textarea id="editor" class="horizontal-tb" placeholder="ここに簡易構文を入力...&#13;&#10;# 見出し&#13;&#10;｜漢字《かんじ》のルビ記法や**強調**が使えます。"></textarea>
+  </div>
+  <div id="pane-output" class="pane">
+    <div id="preview" class="horizontal-tb"></div>
+  </div>
+</main>
+
+<script>
+  const body = document.body;
+  const editor = document.getElementById('editor');
+  const preview = document.getElementById('preview');
+  const btnSplit = document.getElementById('btn-split');
+  const btnPane = document.getElementById('btn-pane');
+  const btnDir = document.getElementById('btn-dir');
+  const btnTheme = document.getElementById('btn-theme');
+  const btnDl = document.getElementById('btn-dl');
+
+  let isSplit = window.innerWidth >= 1024;
+  let activePane = 'input';
+  let isVertical = false;
+  let isDark = false;
+
+  function parse(text) {
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    html = html.replace(/[|｜](.+?)《(.+?)》/g, '<ruby>$1<rt>$2</rt></ruby>');
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/^# (.+)$/gm, '<h2>$1</h2>');
+    html = html.split(/\n{2,}/).map(p => {
+      if (p.startsWith('<h2>')) return p;
+      return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
+
+    return html;
+  }
+
+  function updatePreview() {
+    preview.innerHTML = parse(editor.value);
+  }
+
+  function updateLayout() {
+    const canSplit = window.innerWidth >= 1024;
+
+    if (!canSplit) {
+      isSplit = false;
+    }
+
+    if (isSplit) {
+      body.classList.remove('single-mode');
+      btnSplit.textContent = '一画面';
+      btnPane.style.display = 'none';
+    } else {
+      body.classList.add('single-mode');
+      btnSplit.textContent = '二画面';
+      btnPane.style.display = 'inline-block';
+    }
+
+    body.setAttribute('data-active-pane', activePane);
+    btnPane.textContent = activePane === 'input' ? '出' : '入';
+  }
+
+  function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  editor.addEventListener('input', updatePreview);
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth >= 1024 && !body.dataset.userForcedSingle) {
+      isSplit = true;
+    }
+    updateLayout();
+  });
+
+  btnSplit.addEventListener('click', () => {
+    isSplit = !isSplit;
+    body.dataset.userForcedSingle = !isSplit ? 'true' : '';
+    updateLayout();
+  });
+
+  btnPane.addEventListener('click', () => {
+    activePane = activePane === 'input' ? 'output' : 'input';
+    updateLayout();
+  });
+
+  btnDir.addEventListener('click', () => {
+    isVertical = !isVertical;
+    const addClass = isVertical ? 'vertical-rl' : 'horizontal-tb';
+    const removeClass = isVertical ? 'horizontal-tb' : 'vertical-rl';
+
+    editor.classList.remove(removeClass);
+    editor.classList.add(addClass);
+    preview.classList.remove(removeClass);
+    preview.classList.add(addClass);
+
+    btnDir.textContent = isVertical ? '横' : '縦';
+  });
+
+  btnTheme.addEventListener('click', () => {
+    isDark = !isDark;
+    body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    btnTheme.textContent = isDark ? '白' : '黒';
+  });
+
+  btnDl.addEventListener('click', () => {
+    const rawText = editor.value;
+    const parsedHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>出力結果</title></head>
+<body style="writing-mode: ${isVertical ? 'vertical-rl' : 'horizontal-tb'};">
+${preview.innerHTML}
+</body>
+</html>`;
+
+    downloadFile('document.jd', rawText, 'text/plain;charset=utf-8');
+    setTimeout(() => {
+      downloadFile('document.html', parsedHtml, 'text/html;charset=utf-8');
+    }, 100);
+  });
+
+  updateLayout();
+  updatePreview();
+</script>
+</body>
+</html>
